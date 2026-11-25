@@ -169,3 +169,21 @@ def test_env_example_loads_in_sandbox(tmp_path: Path) -> None:
     assert settings.public_base_url == ""
     assert settings.supabase_service_role_key is None
     assert settings.watchdog_interval_seconds == 60
+
+
+def test_previous_master_keys_parsed_and_validated() -> None:
+    old = base64.b64encode(secrets.token_bytes(32)).decode()
+    settings = build(master_encryption_key_version=2, master_encryption_previous_keys=f"1:{old}")
+    assert set(settings.master_keys()) == {1, 2}
+    assert old not in repr(settings)
+
+    with pytest.raises(ValidationError, match="active"):
+        build(master_encryption_key_version=1, master_encryption_previous_keys=f"1:{old}")
+    with pytest.raises(ValidationError, match="'<version>:<key>'"):
+        build(master_encryption_previous_keys=old)
+    with pytest.raises(ValidationError, match="duplicate"):
+        build(master_encryption_key_version=3, master_encryption_previous_keys=f"1:{old},1:{old}")
+    with pytest.raises(ValidationError) as exc_info:
+        build(master_encryption_previous_keys="1:" + base64.b64encode(b"short").decode())
+    assert "32 bytes" in str(exc_info.value)
+    assert build(master_encryption_previous_keys="").master_encryption_previous_keys is None

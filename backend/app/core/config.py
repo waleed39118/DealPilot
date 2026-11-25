@@ -90,6 +90,13 @@ class Settings(BaseSettings):
         description="Base64-encoded 32-byte key-encryption key (KEK)."
     )
     master_encryption_key_version: int = Field(default=1, ge=1)
+    master_encryption_previous_keys: SecretStr | None = Field(
+        default=None,
+        description=(
+            "Retired KEKs kept for decryption during rotation, as "
+            "'<version>:<base64-key>' entries separated by commas."
+        ),
+    )
 
     # ── Language model providers ────────────────────────────────────────────
     llm_primary_provider: str = ""
@@ -154,6 +161,7 @@ class Settings(BaseSettings):
         "pdl_api_key",
         "hunter_api_key",
         "expo_access_token",
+        "master_encryption_previous_keys",
         mode="before",
     )
     @classmethod
@@ -209,17 +217,26 @@ class Settings(BaseSettings):
     @field_validator("master_encryption_key")
     @classmethod
     def _validate_master_key(cls, value: SecretStr) -> SecretStr:
-        try:
-            raw = base64.b64decode(value.get_secret_value(), validate=True)
-        except (binascii.Error, ValueError) as exc:
-            raise ValueError("master_encryption_key must be valid base64") from exc
-        if len(raw) != _AES_256_KEY_BYTES:
-            raise ValueError(
-                f"master_encryption_key must decode to {_AES_256_KEY_BYTES} bytes (got {len(raw)})"
-            )
+        _decode_aes_key(value.get_secret_value(), "master_encryption_key")
+        return value
+
+    @field_validator("master_encryption_previous_keys")
+    @classmethod
+    def _validate_previous_keys(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None:
+            _parse_versioned_keys(value.get_secret_value())
         return value
 
     # ── Cross-field validation ──────────────────────────────────────────────
+    @model_validator(mode="after")
+    def _validate_key_versions(self) -> Self:
+        if self.master_encryption_key_version in self._previous_master_keys():
+            raise ValueError(
+                "master_encryption_previous_keys must not reuse the active "
+                f"version {self.master_encryption_key_version}"
+            )
+        return self
+
     @model_validator(mode="after")
     def _validate_mode_requirements(self) -> Self:
         problems = self.missing_for_live() if self.app_mode is AppMode.LIVE else []
@@ -286,6 +303,47 @@ class Settings(BaseSettings):
     def master_key_bytes(self) -> bytes:
         """Decoded 32-byte KEK. Call only where the key is actually used."""
         return base64.b64decode(self.master_encryption_key.get_secret_value())
+
+    def master_keys(self) -> dict[int, bytes]:
+        """Every usable KEK by version: the active key plus retired ones."""
+        keys = self._previous_master_keys()
+        keys[self.master_encryption_key_version] = self.master_key_bytes()
+        return keys
+
+    def _previous_master_keys(self) -> dict[int, bytes]:
+        if self.master_encryption_previous_keys is None:
+            return {}
+        return _parse_versioned_keys(self.master_encryption_previous_keys.get_secret_value())
+
+
+def _decode_aes_key(text: str, label: str) -> bytes:
+    try:
+        raw = base64.b64decode(text.strip(), validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError(f"{label} must be valid base64") from exc
+    if len(raw) != _AES_256_KEY_BYTES:
+        raise ValueError(f"{label} must decode to {_AES_256_KEY_BYTES} bytes (got {len(raw)})")
+    return raw
+
+
+def _parse_versioned_keys(text: str) -> dict[int, bytes]:
+    """Parse ``"1:<b64>,2:<b64>"``. Error messages never include key material."""
+    keys: dict[int, bytes] = {}
+    entries = [item.strip() for item in text.split(",") if item.strip()]
+    for position, entry in enumerate(entries, start=1):
+        version_text, separator, key_text = entry.partition(":")
+        if not separator or not version_text.strip().isdigit():
+            raise ValueError(
+                f"master_encryption_previous_keys entry #{position} must be '<version>:<key>'"
+            )
+        version = int(version_text)
+        if version < 1 or version in keys:
+            raise ValueError(
+                f"master_encryption_previous_keys entry #{position} has an invalid or "
+                "duplicate version"
+            )
+        keys[version] = _decode_aes_key(key_text, f"previous key version {version}")
+    return keys
 
 
 @lru_cache(maxsize=1)

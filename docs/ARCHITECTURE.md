@@ -324,7 +324,6 @@ erDiagram
 ```text
 DealPilot/
 ├── README.md
-├── .env.example                      # أسماء المتغيرات فقط — بلا قيم
 ├── .gitignore
 ├── pnpm-workspace.yaml               # مساحة عمل TypeScript (desktop + mobile + packages)
 ├── package.json
@@ -337,6 +336,7 @@ DealPilot/
 │
 ├── backend/                          # Python 3.12+ / FastAPI
 │   ├── pyproject.toml
+│   ├── .env.example                  # أسماء المتغيرات فقط — بلا قيم
 │   ├── Dockerfile
 │   ├── app/
 │   │   ├── main.py                   # إنشاء التطبيق، middleware، lifespan
@@ -475,7 +475,7 @@ DealPilot/
 
 | الحزمة | الترتيب | الملفات |
 |--------|---------|---------|
-| **A. نواة الخلفية** | 1 | `pyproject.toml`, `.env.example`, `core/config.py` |
+| **A. نواة الخلفية** | 1 | `.gitignore`, `pyproject.toml`, `.env.example`, `core/config.py` + اختبارات |
 | | 2 | `core/errors.py`, `core/resilience/retry.py`, `circuit_breaker.py`, `fallback.py` + اختبارات |
 | | 3 | `core/security/crypto.py` + اختبارات |
 | | 4 | `domain/models.py` (بما فيها Project Brief), `domain/deal_state.py`, `domain/actions.py` |

@@ -225,6 +225,7 @@ class Prospect(DomainModel):
     company_name: ShortText
     email: str | None = None
     phone: str | None = None
+    fax: str | None = Field(default=None, description="E.164 fax number, if known.")
     country: str
     timezone: str
     language: Language = Language.EN
@@ -243,11 +244,11 @@ class Prospect(DomainModel):
             raise ValueError("invalid email address")
         return value
 
-    @field_validator("phone")
+    @field_validator("phone", "fax")
     @classmethod
     def _phone(cls, value: str | None) -> str | None:
         if value is not None and not _E164_RE.match(value):
-            raise ValueError("phone must be in E.164 format, e.g. +9665XXXXXXXX")
+            raise ValueError("phone and fax must be in E.164 format, e.g. +9665XXXXXXXX")
         return value
 
     @field_validator("country")

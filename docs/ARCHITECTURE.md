@@ -185,7 +185,7 @@ sequenceDiagram
 | `min_hours_between_touches` | فاصل أدنى بين الرسائل | 72 |
 | `quiet_hours` | ساعات يُمنع فيها التواصل (بتوقيت العميل) | 20:00–09:00 |
 
-**التنفيذ:** `compliance/guardrails.py` دالة حتمية (Deterministic) تستقبل `ProposedAction` وتعيد `ALLOW | REQUIRE_APPROVAL | DENY` مع السبب. **الـ LLM لا يستطيع تجاوزها** — حتى لو حاول العميل التلاعب بالتعليمات (Prompt Injection)، لأن القرار خارج النموذج.
+**التنفيذ:** `compliance/guardrails.py` دالة حتمية (Deterministic) تستقبل `ProposedAction` وتعيد `ALLOW | DEFER | REQUIRE_APPROVAL | DENY` مع كل الأسباب (`DEFER` = التأجيل إلى وقت محدد، مثل انتهاء ساعات الهدوء). **الـ LLM لا يستطيع تجاوزها** — حتى لو حاول العميل التلاعب بالتعليمات (Prompt Injection)، لأن القرار خارج النموذج.
 
 ### 2.2 حماية السمعة القانونية
 
@@ -370,7 +370,8 @@ DealPilot/
 │   │   │   ├── deal_state.py         # آلة الحالة + الانتقالات المسموحة
 │   │   │   └── actions.py            # ProposedAction (رسالة، خصم، عقد…)
 │   │   ├── compliance/
-│   │   │   ├── guardrails.py         # ALLOW / REQUIRE_APPROVAL / DENY
+│   │   │   ├── decision.py           # أنواع القرار المشتركة وترتيب أولويتها
+│   │   │   ├── guardrails.py         # ALLOW / DEFER / REQUIRE_APPROVAL / DENY
 │   │   │   ├── channel_policy.py     # مصفوفة القنوات والموافقات
 │   │   │   ├── consent.py
 │   │   │   ├── suppression.py

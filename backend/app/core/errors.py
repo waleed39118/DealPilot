@@ -87,6 +87,14 @@ class PermanentError(DealPilotError):
     default_category = ErrorCategory.PERMANENT
 
 
+class NetworkError(TransientError):
+    """The provider could not be reached (DNS failure, refused or dropped connection)."""
+
+
+class TimeoutExceededError(TransientError):
+    """No response within the allowed time."""
+
+
 class ProviderUnavailableError(TransientError):
     """Raised without calling the provider because its circuit breaker is open."""
 
@@ -187,7 +195,9 @@ def to_dealpilot_error(exc: BaseException, *, provider: str | None = None) -> De
         return exc
     description = f"{type(exc).__name__}: {exc}".rstrip(": ")
     if isinstance(exc, (socket.gaierror, ConnectionRefusedError)):
-        return TransientError(description, provider=provider, may_have_succeeded=False)
-    if isinstance(exc, (TimeoutError, ConnectionError)):
-        return TransientError(description, provider=provider, may_have_succeeded=True)
+        return NetworkError(description, provider=provider, may_have_succeeded=False)
+    if isinstance(exc, TimeoutError):
+        return TimeoutExceededError(description, provider=provider, may_have_succeeded=True)
+    if isinstance(exc, ConnectionError):
+        return NetworkError(description, provider=provider, may_have_succeeded=True)
     return PermanentError(description, provider=provider)

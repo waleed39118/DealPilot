@@ -11,8 +11,10 @@ from app.core.errors import (
     AllProvidersFailedError,
     AuthError,
     ErrorCategory,
+    NetworkError,
     PermanentError,
     RateLimitedError,
+    TimeoutExceededError,
     TransientError,
     classify_http_status,
     error_from_http_status,
@@ -72,14 +74,14 @@ def test_error_from_http_status_types_and_metadata() -> None:
 
 def test_to_dealpilot_error_mapping() -> None:
     dns = to_dealpilot_error(socket.gaierror("no host"), provider="x")
-    assert isinstance(dns, TransientError)
+    assert isinstance(dns, NetworkError)
     assert not dns.may_have_succeeded
 
     refused = to_dealpilot_error(ConnectionRefusedError())
     assert not refused.may_have_succeeded
 
     timeout = to_dealpilot_error(TimeoutError("read timed out"))
-    assert isinstance(timeout, TransientError)
+    assert isinstance(timeout, TimeoutExceededError)
     assert timeout.may_have_succeeded
 
     reset = to_dealpilot_error(ConnectionResetError())

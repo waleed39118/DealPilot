@@ -272,9 +272,14 @@ def test_currency_mismatch_denied_even_for_humans() -> None:
     assert evaluate(action, ctx).codes == ("currency_mismatch",)
 
 
-def test_human_may_go_below_floor() -> None:
+def test_human_below_floor_needs_explicit_confirmation() -> None:
     ctx = build_ctx()
-    assert evaluate(offer(ctx, "5000", proposed_by=Actor.HUMAN, binding=True), ctx).allowed
+    below = evaluate(offer(ctx, "5000", proposed_by=Actor.HUMAN, binding=True), ctx)
+    assert below.verdict is Verdict.REQUIRE_APPROVAL
+    assert below.codes == ("below_price_floor_confirmation",)
+    # Within the floor, a human decision needs no extra step (no cap, terms or threshold).
+    deep = offer(ctx, "8000", proposed_by=Actor.HUMAN, payment_term=PaymentTerm.NET_60)
+    assert evaluate(deep, ctx).allowed
 
 
 def test_no_offers_before_engagement() -> None:

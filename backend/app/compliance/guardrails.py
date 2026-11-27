@@ -12,7 +12,9 @@ Authority model
   frequency) apply to **every** actor, humans included.
 * Commercial authority (price floor, discount cap, payment terms, deal-value threshold,
   approvals for first contact, binding offers, contracts and invoices) restricts the
-  **agent and system**. A human-proposed action is already the user's decision.
+  **agent and system**. A human-proposed action is already the user's decision, with
+  one safeguard: a human price below the floor needs an explicit confirmation step
+  (``below_price_floor_confirmation``) to catch typos and misuse of a hijacked session.
 * Actions are re-evaluated at execution time, after approval, so a deferral or a newly
   revoked consent is still caught.
 """
@@ -184,6 +186,13 @@ def _pricing_reasons(
             deny("currency_mismatch", f"price must be in {policy.currency}, got {currency}")
         )
     if actor is Actor.HUMAN:
+        if price < policy.price_floor:
+            reasons.append(
+                needs_approval(
+                    "below_price_floor_confirmation",
+                    f"{price} is below the price floor {policy.price_floor}; confirm with a reason",
+                )
+            )
         return reasons
     if price < policy.price_floor:
         reasons.append(

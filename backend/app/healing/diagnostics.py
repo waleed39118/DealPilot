@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.ai.llm.base import ModelRefusalError, StructuredOutputError
 from app.core.errors import (
     AllProvidersFailedError,
     AuthError,
@@ -109,7 +110,15 @@ def _classify(
             Remediation.ESCALATE,
             True,
         )
-    if isinstance(error, InvalidActionError):
+    if isinstance(error, ModelRefusalError):
+        return (
+            "model_refused",
+            "the language model declined the request",
+            Severity.WARNING,
+            Remediation.ESCALATE,
+            False,
+        )
+    if isinstance(error, (InvalidActionError, StructuredOutputError)):
         return (
             "invalid_model_output",
             "the language model returned an invalid action",

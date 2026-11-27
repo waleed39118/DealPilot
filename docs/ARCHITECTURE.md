@@ -185,7 +185,7 @@ sequenceDiagram
 | `min_hours_between_touches` | فاصل أدنى بين الرسائل | 72 |
 | `quiet_hours` | ساعات يُمنع فيها التواصل (بتوقيت العميل) | 20:00–09:00 |
 
-**التنفيذ:** `compliance/guardrails.py` دالة حتمية (Deterministic) تستقبل `ProposedAction` وتعيد `ALLOW | REQUIRE_APPROVAL | DENY` مع السبب. **الـ LLM لا يستطيع تجاوزها** — حتى لو حاول العميل التلاعب بالتعليمات (Prompt Injection)، لأن القرار خارج النموذج.
+**التنفيذ:** `compliance/guardrails.py` دالة حتمية (Deterministic) تستقبل `ProposedAction` وتعيد `ALLOW | DEFER | REQUIRE_APPROVAL | DENY` مع كل الأسباب (`DEFER` = التأجيل إلى وقت محدد، مثل انتهاء ساعات الهدوء). **الـ LLM لا يستطيع تجاوزها** — حتى لو حاول العميل التلاعب بالتعليمات (Prompt Injection)، لأن القرار خارج النموذج.
 
 ### 2.2 حماية السمعة القانونية
 
@@ -324,7 +324,6 @@ erDiagram
 ```text
 DealPilot/
 ├── README.md
-├── .env.example                      # أسماء المتغيرات فقط — بلا قيم
 ├── .gitignore
 ├── pnpm-workspace.yaml               # مساحة عمل TypeScript (desktop + mobile + packages)
 ├── package.json
@@ -337,6 +336,7 @@ DealPilot/
 │
 ├── backend/                          # Python 3.12+ / FastAPI
 │   ├── pyproject.toml
+│   ├── .env.example                  # أسماء المتغيرات فقط — بلا قيم
 │   ├── Dockerfile
 │   ├── app/
 │   │   ├── main.py                   # إنشاء التطبيق، middleware، lifespan
@@ -370,7 +370,8 @@ DealPilot/
 │   │   │   ├── deal_state.py         # آلة الحالة + الانتقالات المسموحة
 │   │   │   └── actions.py            # ProposedAction (رسالة، خصم، عقد…)
 │   │   ├── compliance/
-│   │   │   ├── guardrails.py         # ALLOW / REQUIRE_APPROVAL / DENY
+│   │   │   ├── decision.py           # أنواع القرار المشتركة وترتيب أولويتها
+│   │   │   ├── guardrails.py         # ALLOW / DEFER / REQUIRE_APPROVAL / DENY
 │   │   │   ├── channel_policy.py     # مصفوفة القنوات والموافقات
 │   │   │   ├── consent.py
 │   │   │   ├── suppression.py
@@ -475,7 +476,7 @@ DealPilot/
 
 | الحزمة | الترتيب | الملفات |
 |--------|---------|---------|
-| **A. نواة الخلفية** | 1 | `pyproject.toml`, `.env.example`, `core/config.py` |
+| **A. نواة الخلفية** | 1 | `.gitignore`, `pyproject.toml`, `.env.example`, `core/config.py` + اختبارات |
 | | 2 | `core/errors.py`, `core/resilience/retry.py`, `circuit_breaker.py`, `fallback.py` + اختبارات |
 | | 3 | `core/security/crypto.py` + اختبارات |
 | | 4 | `domain/models.py` (بما فيها Project Brief), `domain/deal_state.py`, `domain/actions.py` |
